@@ -14,6 +14,32 @@ import numpy as np
 import math
 from sklearn.preprocessing import MinMaxScaler
 from common.utils import load_data, mape
+from scipy.spatial.distance import mahalanobis
+
+
+def calculate_mahalanobis_distance(X):
+    cov_matrix = np.cov(X, rowvar=False)
+    inv_cov_matrix = np.linalg.inv(cov_matrix)
+    mean_vector = np.mean(X, axis=0)
+    mahalanobis_distances = []
+    for sample in X:
+        distance = mahalanobis(sample, mean_vector, inv_cov_matrix)
+        mahalanobis_distances.append(distance)
+    return np.array(mahalanobis_distances)
+
+# Assign weights based on Mahalanobis distance
+def assign_weights(X):
+    mahalanobis_distances = calculate_mahalanobis_distance(X)
+    weights = 1 / mahalanobis_distances
+    return weights
+
+# Create a weighted fuzzy SVR model with Mahalanobis distance
+def weighted_fuzzy_svr(X_train, y_train, X_test):
+    weights = assign_weights(X_train)
+    svr = SVR(kernel='rbf', C=1.0)  # You can adjust hyperparameters
+    svr.fit(X_train, y_train, sample_weight=weights)
+    y_pred = svr.predict(X_test)
+    return y_pred
 
 
 st = dt.datetime(1988, 1, 1)
@@ -70,8 +96,8 @@ for i, time_series_data in enumerate(time_series):
     model = SVR(kernel='rbf',gamma=0.5, C=10, epsilon = 0.05)
     SVR(C=10, cache_size=200, coef0=0.0, degree=3, epsilon=0.05, gamma=0.5,
     kernel='rbf', max_iter=-1, shrinking=True, tol=0.001, verbose=False)
-    y_train_pred = model.predict(x_train).reshape(-1,1)
-    y_test_pred = model.predict(x_test).reshape(-1,1)
+    y_train_pred = weighted_svr(x_train, y_train, x_train)
+    y_test_pred = weighted_svr(x_train, y_train, x_test)
 
     print(y_train_pred.shape, y_test_pred.shape)
     y_train_pred = scaler.inverse_transform(y_train_pred)
